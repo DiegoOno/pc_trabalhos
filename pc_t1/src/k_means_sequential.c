@@ -21,30 +21,11 @@ int main(int argc, char *argv[]) {
     int opt;
     char *example_filename, *centroid_filename;
     int n_attr;
+    FILE *ptr;
 
-    if( argc > 2) {
-        while(opt = getopt(argc, argv, "h:e:c:a")) {
-            switch (opt){
-                case 'h':
-                    //show_help();
-                    break;
-                
-                case 'e':
-                    example_filename =  optarg;
-                    break;
-                
-                case 'c':
-                    centroid_filename = optarg;
-                
-                case 'a':
-                    n_attr = atoi(optarg);
-                    break;
-                default:
-                    fprintf(stderr, "Parâmetro inválido.\n");
-                    return -1;
-            }
-        }
-    } else {
-        show_help();
-    }
+    example_filename = argv[1];
+    centroid_filename = argv[2];
+    n_attr = atoi(argv[3]);
+
+    return 0;
 }
