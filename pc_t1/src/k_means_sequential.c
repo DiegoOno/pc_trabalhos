@@ -6,8 +6,8 @@
 
 typedef struct example {
     int *coordinates;
-    int *coordinates_number;
-
+    int *coordinates_number; 
+    int centroid_index;         //Index of closest centroid 
 } example;
 
 typedef struct centroid {
@@ -16,6 +16,32 @@ typedef struct centroid {
     int coordinates_number;
 
 } centroid;
+
+int euclidean_distance(int *example, int *centroid, int n_attr) {
+    int distance = 0;
+
+    for(int i = 0; i < n_attr; i++) {
+        distance += (example[i] - centroid[i]) * (example[i] - centroid[i]);
+    }
+    distance = sqrt(distance);
+    return distance;
+}
+
+int min_centroid_distance_index(int *example, centroid *centroids, int n_centroids, int n_attr) {
+    int centroid_index = 0;
+    int distance = euclidean_distance(example, centroids[0].coordinates, n_attr);
+    int aux_distance;
+
+    for(int i = 1; i < n_centroids; i++) {
+        aux_distance = euclidean_distance(example, centroids[i].coordinates, n_attr);
+        if(aux_distance < distance) {
+            distance = aux_distance;
+            centroid_index = i;
+        }
+    }
+    printf("Menor distancia: %d\n", distance);
+    return centroid_index;
+}
 
 int arrays_are_equals(int array_a[], int array_b[], int elements_number) {
     for (int i = 0; i < elements_number; i++) {
@@ -34,26 +60,25 @@ int centroids_are_equals(centroid centroid[], int centroids_number) {
     return 1;
 }
 
-void k_means(centroid centroids[], int centroids_number) {
+void k_means(example *examples, int n_examples, centroid *centroids, int n_centroids, int n_attr) {
+    int aux_index;
+
     do {
         //TODO K-Means
-    } while (!centroids_are_equals(centroids, centroids_number));
+        for(int i = 0; i < n_examples; i++) {
+            aux_index = min_centroid_distance_index(examples[i].coordinates, centroids, n_centroids, n_attr);
+            if(examples[i].centroid_index != aux_index) {
+                examples[i].centroid_index = aux_index;
+            }
+        }
+        //update_centroids    
+    } while (!centroids_are_equals(centroids, n_centroids));
 }
 
 void array_copy(int array_a[], int array_b[], int elements_number) {
     for (int i = 0; i < elements_number; i++) {
         array_b[i] = array_a[i];
     }
-}
-
-int euclidean_distance(int *example, int *centroid, int n_attr) {
-    int distance = 0;
-
-    for(int i = 0; i < n_attr; i++) {
-        distance += (example[i] - centroid[i]) * (example[i] - centroid[i]);
-    }
-    distance = sqrt(distance);
-    return distance;
 }
 
 // void show_help() {
@@ -123,9 +148,7 @@ int main(int argc, char *argv[]) {
     n_attr = atoi(argv[3]);
 
     examples = (example *) malloc(count_lines(example_filename) * sizeof(example));
-    printf("Alocou exemplos.\n");
     centroids = (centroid *) malloc(count_lines(centroid_filename) * sizeof(centroid));
-    printf("Alocou centroides.\n");
 
     //Get data of examples file
     ptr = fopen(example_filename, "r");
@@ -161,13 +184,7 @@ int main(int argc, char *argv[]) {
     }
     fclose(ptr);
 
-    // Print examples for test
-    for(int i = 0; i < n_examples; i++) {
-        for(int j = 0; j < n_attr; j++) {
-            printf("%d|", examples[i].coordinates[j]);
-        }
-        printf("\n");
-    }
+    k_means(examples, n_examples, centroids, n_centroids, n_attr);
 
     return 0;
 }
