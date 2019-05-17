@@ -175,36 +175,28 @@ int main(int argc, char *argv[]) {
 
     //Get data of examples file
     ptr = fopen(example_filename, "r");
-    n_examples = 0;
-    while((read = getline(&aux, &len, ptr)) != -1) {
-        aux = strtok(aux, ",");
-        n_examples++;
-        i = 0;
+    for(int i = 0; i < n_examples; i++) {
+        printf("Lendo exemplo: %d\n", i);
         vet_aux = malloc(n_attr * sizeof(int));
-        while(aux != NULL) {
-            vet_aux[i] = atoi(aux);
-            aux = strtok (NULL, " ,.-");
-            i++;
+        for(int j = 0; j < n_attr - 1; j++) {
+            fscanf(ptr, "%d,", &vet_aux[j]);
         }
-        examples[n_examples - 1].coordinates = vet_aux;
+        fscanf(ptr, "%d\n", &vet_aux[n_attr - 1]);
+        examples[i].coordinates = vet_aux;
     }
     fclose(ptr);
 
     //Get data of centroids file
     ptr = fopen(centroid_filename, "r");
-    n_centroids = 0;
-    while((read = getline(&aux, &len, ptr)) != -1) {
-        aux = strtok(aux, ",");
-        n_centroids++;
-        i = 0;
+    for(int i = 0; i < n_centroids; i++) {
+        printf("Lendo centroide: %d\n", i);
         vet_aux = malloc(n_attr * sizeof(int));
-        while(aux != NULL) {
-            vet_aux[i] = atoi(aux);
-            aux = strtok (NULL, " ,.-");
-            i++;
+        for(int j = 0; j < n_attr - 1; j++) {
+            fscanf(ptr, "%d,", &vet_aux[j]);
         }
-        centroids[n_centroids - 1].coordinates = vet_aux;
-    }
+        fscanf(ptr, "%d\n", &vet_aux[n_attr - 1]);
+        centroids[i].coordinates = vet_aux;
+    }        
     fclose(ptr);
 
     //Print examples for test
