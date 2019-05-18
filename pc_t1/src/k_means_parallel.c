@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
+#include <pthread.h>
 
 typedef struct example {
     int *coordinates; 
@@ -18,6 +19,8 @@ typedef struct centroid {
 example *examples;
 centroid *centroids;
 unsigned long n_attr, n_examples, n_centroids, iteration;
+int n_threads;
+pthread_barrier_t barrier1, barrier2;
 
 int euclidean_distance(int *example, int *centroid) {
     int distance = 0;
@@ -93,43 +96,40 @@ int get_near_centroid_quantity(int centroid_index) {
     return near_examples_quantity;
 }
 
-void update_centroids() {
-    int mean, near_examples_quantity;
+void *k_means(void *arg) {
+    int aux_index, mean, near_examples_quantity;
     int *near_examples_indexes;
-  
-    for(int i = 0; i < n_centroids; i++) {
-        array_copy(centroids[i].coordinates, centroids[i].old_coordinates, n_attr);
-        near_examples_quantity = get_near_centroid_quantity(i);
-        near_examples_indexes = get_near_centroid_index(i);
-        
-        if(near_examples_quantity > 0) {
-            for(int j = 0; j < n_attr; j++) {
-                mean = 0;
-                for(int k = 0; k < near_examples_quantity; k++) {
-                    mean += examples[near_examples_indexes[k]].coordinates[j];
-                }
-            centroids[i].coordinates[j] = mean / near_examples_quantity;
-            }
-        }
-    }
-}
-
-int k_means() {
-    int aux_index;
+    int curr_thread = (int) arg;
 
     iteration = 0;
     do {
-        for(int i = 0; i < n_examples; i++) {
+        for(int i = curr_thread; i < n_examples; i += n_threads) {
             aux_index = min_centroid_distance_index(examples[i].coordinates);
             if(examples[i].centroid_index != aux_index) {
                 examples[i].centroid_index = aux_index;
             }
         }
-        update_centroids();
+        pthread_barrier_wait(&barrier1);
+    
+        for(int i = curr_thread; i < n_centroids; i += n_threads) {
+            array_copy(centroids[i].coordinates, centroids[i].old_coordinates, n_attr);
+            near_examples_quantity = get_near_centroid_quantity(i);
+            near_examples_indexes = get_near_centroid_index(i);
+        
+            if(near_examples_quantity > 0) {
+                for(int j = 0; j < n_attr; j++) {
+                    mean = 0;
+                    for(int k = 0; k < near_examples_quantity; k++) {
+                        mean += examples[near_examples_indexes[k]].coordinates[j];
+                    }
+                centroids[i].coordinates[j] = mean / near_examples_quantity;
+                }
+            }
+        }
+        pthread_barrier_wait(&barrier2);
         iteration++;
     } while (!centroids_are_equals());
     
-    return iteration;
 }
 
 int count_lines(char *file_name) {
@@ -163,10 +163,12 @@ int main(int argc, char *argv[]) {
     char *example_filename, *centroid_filename;
     int n_lines;
     FILE *ptr;
+    pthread_t *threads;
 
     example_filename = argv[1];
     centroid_filename = argv[2];
     n_attr = atoi(argv[3]);
+    n_threads = atoi(argv[4]);
 
     n_examples = count_lines(example_filename);
     n_centroids = count_lines(centroid_filename);
@@ -175,6 +177,10 @@ int main(int argc, char *argv[]) {
     centroids = (centroid *) malloc(n_centroids * sizeof(centroid));
     init_old_centroid();
 
+    threads = (pthread_t *) malloc(n_threads * sizeof(pthread_t));
+    pthread_barrier_init(&barrier1, NULL, n_threads);
+    pthread_barrier_init(&barrier2, NULL, n_threads);
+    
     //Get data of examples file
     ptr = fopen(example_filename, "r");
     for(int i = 0; i < n_examples; i++) {
@@ -206,5 +212,19 @@ int main(int argc, char *argv[]) {
     //     }
     //     printf("\n");
     // }
-    printf("Total de Iterações do K-Means: %d\n", k_means());
+    //printf("Total de Iterações do K-Means: %d\n", k_means());
+    for(int i = 0; i < n_threads; i++) {
+        pthread_create(&threads[i], NULL, k_means, (void *) i);
+    }
+
+    for(int i = 0; i < n_threads; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    printf("Numero de Iterações: %ld\n", iteration/n_threads);
+    // for(int i = 0; i < n_examples; i++) {
+    //     printf("ID: %d    Centroid_ID: %d\n", i,examples[i].centroid_index);
+    // }
+
+    pthread_exit(NULL);
 }
