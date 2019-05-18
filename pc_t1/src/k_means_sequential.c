@@ -39,7 +39,7 @@ int min_centroid_distance_index(int *example, centroid *centroids, int n_centroi
     return centroid_index;
 }
 
-int arrays_are_equals(int array_a[], int array_b[], int elements_number) {
+int arrays_are_equals(int *array_a, int *array_b, int elements_number) {
     for (int i = 0; i < elements_number; i++) {
         if (array_a[i] != array_b[i]) {
             return 0;
@@ -54,7 +54,7 @@ void array_copy(int *array_a, int *array_b, int elements_number) {
     }
 }
 
-int centroids_are_equals(centroid centroid[], int centroids_number, int n_attr) {
+int centroids_are_equals(centroid *centroid, int centroids_number, int n_attr) {
     for (int i = 0; i < centroids_number; i++) {
         if (!arrays_are_equals(centroid[i].coordinates, centroid[i].old_coordinates, n_attr))
             return 0;
@@ -176,7 +176,6 @@ int main(int argc, char *argv[]) {
     //Get data of examples file
     ptr = fopen(example_filename, "r");
     for(int i = 0; i < n_examples; i++) {
-        printf("Lendo exemplo: %d\n", i);
         vet_aux = malloc(n_attr * sizeof(int));
         for(int j = 0; j < n_attr - 1; j++) {
             fscanf(ptr, "%d,", &vet_aux[j]);
@@ -189,7 +188,6 @@ int main(int argc, char *argv[]) {
     //Get data of centroids file
     ptr = fopen(centroid_filename, "r");
     for(int i = 0; i < n_centroids; i++) {
-        printf("Lendo centroide: %d\n", i);
         vet_aux = malloc(n_attr * sizeof(int));
         for(int j = 0; j < n_attr - 1; j++) {
             fscanf(ptr, "%d,", &vet_aux[j]);
