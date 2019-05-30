@@ -221,7 +221,7 @@ int main(int argc, char *argv[]) {
         pthread_join(threads[i], NULL);
     }
 
-    printf("Numero de Iterações: %ld\n", iteration/n_threads);
+    // printf("Numero de Iterações: %ld\n", iteration/n_threads);
     // for(int i = 0; i < n_examples; i++) {
     //     printf("ID: %d    Centroid_ID: %d\n", i,examples[i].centroid_index);
     // }

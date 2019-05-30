@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
     //     printf("\n");
     // }
 
-    printf("Total de Iterações do K-Means: %d\n", k_means(examples, n_examples, centroids, n_centroids, n_attr));
-
+    // printf("Total de Iterações do K-Means: %d\n", k_means(examples, n_examples, centroids, n_centroids, n_attr));
+    k_means(examples, n_examples, centroids, n_centroids, n_attr);
     return 0;
 }
