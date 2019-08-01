@@ -4,7 +4,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <mpi.h>
-#define TAG 1
+#define TAG 0
 
 typedef struct example {
     int *coordinates; 
@@ -96,6 +96,15 @@ int get_near_centroid_quantity(int centroid_index) {
     return near_examples_quantity;
 }
 
+void init_old_centroid() {
+    for(int i = 0; i < n_centroids; i++) {
+        centroids[i].old_coordinates = (int *) malloc(n_attr * sizeof(int));
+        for(int j = 0; j < n_attr; j++) {
+            centroids[i].old_coordinates[j] = 0;
+        }
+    }
+}
+
 void k_means() {
     
     int continue_k_means, aux_index, curr_proc, *aux_coordinates, near_examples_quantity, *near_examples_indexes, mean;
@@ -103,31 +112,31 @@ void k_means() {
     MPI_Status st;
     centroid *centroids_aux;
 
-    continue_k_means = 1;
-
+    init_old_centroid();
     do{
         // Sending centroids to all process
         if(id == 0) {
             for(int i = 0; i < n_centroids; i++) {
                 for(int j = 1; j < size; j++) {
                     MPI_Send(centroids[i].coordinates, n_attr, MPI_INT, j, i + j, MPI_COMM_WORLD);
-                    MPI_Send(centroids[i].old_coordinates, n_attr, MPI_INT, j, i + j + 100, MPI_COMM_WORLD);
-                    printf("Enviando Centroid %d para processo %d.\n", i, j);
+                    MPI_Send(centroids[i].old_coordinates, n_attr, MPI_INT, j, i + 100, MPI_COMM_WORLD);
+                    //printf("Enviando Centroid %d para processo %d.\n", i, j);
                 }
             }
-        } else {
+        }
+
+        if(id !=0) {
             centroids = (centroid *) malloc(n_centroids * sizeof(centroid));
             for(int i = 0; i < n_centroids; i++) {
                 aux_centroid_coordinates = (int *) malloc(n_attr * sizeof(int));
                 aux_old_coordinates = (int *) malloc(n_attr * sizeof(int));
                 MPI_Recv(aux_centroid_coordinates, n_attr, MPI_INT, 0, i + id, MPI_COMM_WORLD, &st);
-                MPI_Recv(aux_old_coordinates, n_attr, MPI_INT, 0, i + id + 100, MPI_COMM_WORLD, &st);
                 centroids[i].coordinates = aux_centroid_coordinates;
-                centroids[i].coordinates = aux_old_coordinates;
-                printf("Processo %d recebendo centroid %d\n", id, i);
+                MPI_Recv(aux_old_coordinates, n_attr, MPI_INT, 0, i + 100, MPI_COMM_WORLD, &st);
+                centroids[i].old_coordinates = aux_old_coordinates;
+                //printf("Processo %d recebendo centroid %d\n", id, i);
             }
         }
-        
         MPI_Barrier(MPI_COMM_WORLD);
 
         //Calculate distance
@@ -143,7 +152,7 @@ void k_means() {
                 aux_coordinates = (int *) malloc(n_attr * sizeof(int));
                 MPI_Recv(aux_coordinates, n_attr, MPI_INT, 0, TAG + i, MPI_COMM_WORLD, &st);
                 aux_index = min_centroid_distance_index(aux_coordinates);
-                MPI_Send(&aux_index, 1, MPI_INT, 0, TAG + i, MPI_COMM_WORLD);
+                MPI_Send(&aux_index, 1, MPI_INT, 0, TAG + i * 2, MPI_COMM_WORLD);
                 //printf("Enviando indice %d do exemplo %d\n", aux_index, i);
                 free(aux_coordinates);
             }
@@ -152,7 +161,7 @@ void k_means() {
         if(id == 0) {
             for(int i = 0; i < n_examples; i++) {
                 aux_index = 0;
-                MPI_Recv(&aux_index, 1, MPI_INT, (i % (size - 1)) + 1, TAG + i, MPI_COMM_WORLD, &st);
+                MPI_Recv(&aux_index, 1, MPI_INT, (i % (size - 1)) + 1, TAG + i * 2, MPI_COMM_WORLD, &st);
                 if(examples[i].centroid_index != aux_index) {
                     examples[i].centroid_index = aux_index;
                 }
@@ -179,6 +188,8 @@ void k_means() {
             }
         }
 
+        MPI_Barrier(MPI_COMM_WORLD);
+
         if(id == 0) {
             iteration++;
             continue_k_means = !centroids_are_equals();
@@ -189,12 +200,12 @@ void k_means() {
         }
 
         if(id != 0) {
+            //continue_k_means = -1;
             MPI_Recv(&continue_k_means, 1, MPI_INT, 0, id, MPI_COMM_WORLD, &st);
-            free(centroids);
+            //free(centroids);
         }    
+        
         MPI_Barrier(MPI_COMM_WORLD);
-
-        //printf("Vai continuar? %d\n", continue_k_means);
 
     } while (continue_k_means);
 }
@@ -216,14 +227,6 @@ int count_lines(char *file_name) {
     return count_lines;
 }
 
-void init_old_centroid() {
-    for(int i = 0; i < n_centroids; i++) {
-        centroids[i].old_coordinates = (int *) malloc(n_attr * sizeof(int));
-        for(int j = 0; j < n_attr; j++) {
-            centroids[i].old_coordinates[j] = 0;
-        }
-    }
-}
 
 int main(int argc, char *argv[]) {
     int *vet_aux, n_lines;
@@ -244,8 +247,6 @@ int main(int argc, char *argv[]) {
         
     examples = (example *) malloc(n_examples * sizeof(example));
     centroids = (centroid *) malloc(n_centroids * sizeof(centroid));
-    centroids_size = n_centroids * (2 * (n_attr * sizeof(int)));
-    init_old_centroid();
 
     if(id == 0) {
         if(id == 0) {    
@@ -280,7 +281,9 @@ int main(int argc, char *argv[]) {
     MPI_Barrier(MPI_COMM_WORLD); 
 
     k_means();
-    
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
     if(id == 0) {
         printf("Iterações: %ld.\n", iteration);
     }
