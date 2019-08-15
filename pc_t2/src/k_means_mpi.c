@@ -169,13 +169,31 @@ void k_means() {
         }
         MPI_Barrier(MPI_COMM_WORLD);
 
-        //Update centroids
-        if(id == 0){
-            for(int i = 0; i < n_centroids; i++) {
-                array_copy(centroids[i].coordinates, centroids[i].old_coordinates, n_attr);
+        // Send the indexes calculed for each process
+        if(id == 0) {
+            for(int i = 0; i < n_examples; i++) {
+                for(int j = 1; j < size; j++) {
+                    MPI_Send(&examples[i].centroid_index, 1, MPI_INT, j, TAG + i + n_examples, MPI_COMM_WORLD);
+                }
+            }
+        }
+
+        if(id != 0) {
+            for(int i = 0; i < n_examples; i++) {
+                aux_index = 0;
+                MPI_Recv(&aux_index, 1, MPI_INT, 0, TAG + i + n_examples, MPI_COMM_WORLD, &st);
+                examples[i].centroid_index = aux_index;
+            }
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        // Update centroids
+        if(id != 0) {
+            for(int i = id - 1; i < n_centroids; i += size - 1) {
                 near_examples_quantity = get_near_centroid_quantity(i);
                 near_examples_indexes = get_near_centroid_index(i);
-            
+                
                 if(near_examples_quantity > 0) {
                     for(int j = 0; j < n_attr; j++) {
                         mean = 0;
@@ -185,6 +203,14 @@ void k_means() {
                     centroids[i].coordinates[j] = mean / near_examples_quantity;
                     }
                 }
+                MPI_Send(centroids[i].coordinates, n_attr, MPI_INT, 0, TAG + i, MPI_COMM_WORLD);
+            }
+        }
+
+        if(id == 0) {
+            for(int i = 0; i < n_centroids; i++) {
+                array_copy(centroids[i].coordinates, centroids[i].old_coordinates, n_attr);
+                MPI_Recv(centroids[i].coordinates, n_attr, MPI_INT, (i % (size - 1)) + 1, TAG + i, MPI_COMM_WORLD, &st);
             }
         }
 
@@ -196,7 +222,6 @@ void k_means() {
             for(int i = 1; i < size; i++) {
                 MPI_Send(&continue_k_means, 1, MPI_INT, i, i, MPI_COMM_WORLD);
             }
-            printf("Iterações: %ld.\n", iteration);
         }
 
         if(id != 0) {
@@ -230,9 +255,10 @@ int count_lines(char *file_name) {
 
 int main(int argc, char *argv[]) {
     int *vet_aux, n_lines;
-    int mean, near_examples_quantity, *near_examples_indexes;
+    int mean, near_examples_quantity, *near_examples_indexes, *aux_coordinates;
     char *example_filename, *centroid_filename;
     FILE *ptr;
+    MPI_Status st;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
@@ -261,8 +287,6 @@ int main(int argc, char *argv[]) {
                 examples[i].coordinates = vet_aux;
             }
             fclose(ptr);
-
-            printf("Processo %d leu os arquivos\n", id);
         }
 
         //Get data of centroids file
@@ -276,6 +300,26 @@ int main(int argc, char *argv[]) {
             centroids[i].coordinates = vet_aux;
         }        
         fclose(ptr);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // Send all examples to the othes process
+    if(id == 0) {
+        for(int i = 0; i < n_examples; i++) {
+            for(int j = 1; j < size; j++) {
+                MPI_Send(examples[i].coordinates, n_attr, MPI_INT, j, TAG + i, MPI_COMM_WORLD);
+            }
+        }
+    }
+
+    if(id != 0) {
+        examples = (example *) malloc(n_examples * sizeof(example));
+        for(int i = 0; i < n_examples; i++) {
+            aux_coordinates = (int *) malloc(n_attr * sizeof(int));
+            MPI_Recv(aux_coordinates, n_attr, MPI_INT, 0, TAG + i, MPI_COMM_WORLD, &st);
+            examples[i].coordinates = aux_coordinates;
+        }
     }
 
     MPI_Barrier(MPI_COMM_WORLD); 
